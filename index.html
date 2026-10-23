@@ -335,6 +335,17 @@ details[open] summary::before{transform:rotate(90deg)}
 .cands .cd.use{border-color:var(--ink);font-weight:700}
 .cands .cd b{font-family:var(--f-num)}
 .cands .ch2{flex-basis:100%;color:var(--muted);font-size:11px}
+.mvbanner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 10px;padding:12px 14px;border-radius:12px;background:#141C33;color:#fff;border:2px solid var(--volt)}
+.mvbanner b{color:var(--volt);font-size:15px}.mvbanner span{font-size:13px;color:#D7DCEA;flex:1 1 220px}
+.mvbanner .btn{white-space:nowrap}
+.mvbox{max-width:520px}.mvbox h2{font-family:var(--f-display);font-weight:400;font-size:22px;margin:0 0 8px}
+.mvbox ol{margin:6px 0 10px;padding-left:1.3em;font-size:14px}.mvbox ol li{margin:0 0 10px}
+.mvbox ul{margin:4px 0 10px;padding-left:1.2em;font-size:13px}
+.mvbox h3{font-size:15px;margin:14px 0 4px}
+.mvurl{display:block;margin:6px 0;padding:8px 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font:600 13px var(--f-num);word-break:break-all;color:var(--ink)}
+.mvbox .mvmsg{font-size:12px;font-weight:700;min-height:1.2em;margin:4px 0 0}
+.mvbox .btn{padding:9px 14px;font-size:14px}
+.mvbox .mvrow{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
 
 .lock{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
 .lock[hidden]{display:none}
@@ -420,7 +431,7 @@ function showOnly(id){['loading','lockScreen','appWrap'].forEach(x=>{const e=$(x
 function loading(msg){$('loadingMsg').textContent=msg||'読み込み中…';showOnly('loading')}
 const brand='<div class="brand"><div class="bolt" aria-hidden="true"></div><h1>試練スコア計算</h1></div>';
 
-let MODE='code';
+let MODE='code', HASPASS=false;
 function lockUI(msg){
   stopSync();
   const el=$('lockScreen');
@@ -428,10 +439,10 @@ function lockUI(msg){
     <p>クラブメンバー専用です。</p>
     <div class="seg lockseg" role="tablist"><button type="button" data-mode="code" aria-pressed="${MODE==='code'}">コードで入る</button><button type="button" data-mode="pass" aria-pressed="${MODE==='pass'}">IDとパスワード</button></div>
     ${MODE==='code'?`<input id="lockCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="メンバーコード" aria-label="メンバーコードまたは保存コード">
-    <p class="hint">保存コードを貼っても入れます（そのデータが戻ります）。</p>`
+    <p class="hint">保存コードを貼っても入れます（そのデータが戻ります）。パスワードを決めた人は「IDとパスワード」で入ってください。</p>`
     :`<input id="lockId" class="plain" inputmode="numeric" autocomplete="username" placeholder="ゲームID" aria-label="ゲームID">
     <input id="lockPass" class="plain" type="password" autocomplete="current-password" placeholder="パスワード" aria-label="パスワード">
-    <p class="hint">パスワードは、一度コードで入ったあとに決められます。忘れたときは管理者へ。</p>`}
+    <p class="hint">パスワードは、一度メンバーコードで入ったあとに決められます。忘れたときは管理者へ。</p>`}
     <button class="btn volt" type="submit">ログイン</button><div class="err" id="lockErr" role="alert"></div></form>`;
   showOnly('lockScreen'); window.scrollTo(0,0);
   $('lockErr').textContent=msg||'';
@@ -451,8 +462,8 @@ function lockUI(msg){
     err.textContent='確認中…'; btn.disabled=true;
     req.geo=await geo();
     let r=null; try{r=await call('login',req)}catch(e){err.textContent='通信できませんでした（'+String(e&&e.message||e).slice(0,120)+'）';btn.disabled=false;return}
-    if(!r.ok){err.textContent=r.msg;btn.disabled=false;return}
-    ls.set(TOKKEY,r.token);
+    if(!r.ok){err.textContent=r.msg;btn.disabled=false;if(/パスワードを決めてある/.test(r.msg)){MODE='pass';const m=r.msg;lockUI(m)}return}
+    ls.set(TOKKEY,r.token); HASPASS=!!r.hasPass;
     if(MODE==='code')ls.set(KEY,norm(req.code));
     if(saved){delete saved.__k; __RESTORE=saved;}
     if(MODE==='code'&&!r.hasPass)return passUI(r.token,r.me,true);
@@ -464,22 +475,25 @@ function lockUI(msg){
 function passUI(token,me,first){
   const el=$('lockScreen');
   el.innerHTML=`<form class="lockbox" id="passForm" novalidate>${brand}
-    <p>${first?'パスワードを決めておくと、次からは<b>ゲームID</b>と<b>パスワード</b>で入れます。':'新しいパスワードを決めます。'}</p>
+    <p>${first?'パスワードを決めると、次からは<b>ゲームID</b>と<b>パスワード</b>で入ります。':'新しいパスワードを決めます。'}</p>
+    ${first?'<p class="hint">決めたあとは、メンバーコードでは入れなくなります（コードが人に知られても、あなたのアカウントに入られないようにするためです）。</p>':''}
     <p class="hint">ゲームID：${esc(me.gid)||'（メンバー表に未登録）'}</p>
-    <input id="pw1" class="plain" type="password" autocomplete="new-password" placeholder="パスワード（8文字以上）" aria-label="パスワード">
+    ${HASPASS?'<input id="pw0" class="plain" type="password" autocomplete="current-password" placeholder="今のパスワード" aria-label="今のパスワード">':''}
+    <input id="pw1" class="plain" type="password" autocomplete="new-password" placeholder="${HASPASS?'新しいパスワード（8文字以上）':'パスワード（8文字以上）'}" aria-label="新しいパスワード">
     <input id="pw2" class="plain" type="password" autocomplete="new-password" placeholder="もう一度" aria-label="パスワードをもう一度">
     <button class="btn volt" type="submit">このパスワードにする</button><button class="btn" type="button" id="pwLater">${first?'あとで':'やめる'}</button><div class="err" id="pwErr" role="alert"></div></form>`;
   showOnly('lockScreen'); window.scrollTo(0,0);
   const back=()=>first?boot(token,me):showOnly('appWrap');
   $('pwLater').addEventListener('click',back);
   $('passForm').addEventListener('submit',async ev=>{
-    ev.preventDefault(); const a=$('pw1').value,b=$('pw2').value,err=$('pwErr');
+    ev.preventDefault(); const a=$('pw1').value,b=$('pw2').value,cur=HASPASS?$('pw0').value:'',err=$('pwErr');
+    if(HASPASS&&!cur){err.textContent='今のパスワードを入れてください。';return}
     if(a.length<8){err.textContent='8文字以上にしてください。';return}
     if(a!==b){err.textContent='2つのパスワードが違います。';return}
     err.textContent='保存中…';
-    let r=null; try{r=await call('setPassword',token,a)}catch(e){err.textContent='通信できませんでした。';return}
+    let r=null; try{r=await call('setPassword',token,a,cur)}catch(e){err.textContent='通信できませんでした。';return}
     if(!r.ok){if(r.reason)return kicked(r);err.textContent=r.msg;return}
-    if(!first)toast('パスワードを変えました');
+    HASPASS=true; toast(first?'パスワードを決めました。次からは「IDとパスワード」で入ってください':'パスワードを変えました');
     back();
   });
 }
@@ -562,7 +576,7 @@ async function start(){
   loading('ログインを確認しています…');
   let r=null; try{r=await call('resume',tok,DEV,UA(),await geo())}catch(e){lockUI('通信できませんでした。電波のよいところでもう一度開いてください。');return}
   if(!r.ok){ls.del(TOKKEY);return lockUI(r.reason==='kicked'?'別の端末でログインされたので、この端末はログアウトしました。':r.msg||'')}
-  boot(tok,r.me);
+  HASPASS=!!r.hasPass; boot(tok,r.me);
 }
 start();
 })();
