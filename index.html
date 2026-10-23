@@ -359,6 +359,7 @@ details[open] summary::before{transform:rotate(90deg)}
 .lockseg{display:grid;grid-template-columns:1fr 1fr;width:100%}
 .lockseg button{padding:9px 6px;font-size:13px}
 .lockbox input.plain{font:500 17px var(--f-body);letter-spacing:0;text-transform:none}
+.lockbox input::placeholder{font:500 15px var(--f-body);letter-spacing:0;text-transform:none;color:var(--muted);opacity:1}
 .lockbox .hint{font-size:12px}
 .lockbox .btn+.btn{margin-top:-4px}
 .gtoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;z-index:9999}
@@ -380,8 +381,8 @@ let DEV=ls.get(DEVKEY); if(!DEV){DEV=(crypto.randomUUID?crypto.randomUUID():Stri
 // Apps Script を fetch で呼ぶ（Cookie を送らないので、Googleのログイン状態に左右されない）
 async function call(fn,...args){
   const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args}),credentials:'omit',redirect:'follow'});
-  if(!r.ok)throw new Error('通信エラー '+r.status);
-  const j=await r.json(); if(j.err)throw new Error(j.err); return j.r;
+  if(!r.ok)throw new Error('サーバーの応答 '+r.status);
+  const t=await r.text(); let j; try{j=JSON.parse(t)}catch(e){throw new Error('サーバーの応答がおかしい：'+t.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,80))} if(j.err)throw new Error(j.err); return j.r;
 }
 const UA=()=>{const u=navigator.userAgent;const os=/iPhone/.test(u)?'iPhone':/iPad/.test(u)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':'その他';const br=/Edg\//.test(u)?'Edge':/CriOS|Chrome\//.test(u)?'Chrome':/FxiOS|Firefox/.test(u)?'Firefox':/Safari/.test(u)?'Safari':'その他';return os+' / '+br+' / '+screen.width+'x'+screen.height};
 if(ANN_ID&&!ls.get('inazuma-trial-ann'))ls.set('inazuma-trial-ann',ANN_ID);
@@ -425,9 +426,9 @@ function lockUI(msg){
   const el=$('lockScreen');
   el.innerHTML=`<form class="lockbox" id="lockForm" novalidate>${brand}
     <p>クラブメンバー専用です。</p>
-    <div class="seg lockseg" role="tablist"><button type="button" data-mode="code" aria-pressed="${MODE==='code'}">コードで入る</button><button type="button" data-mode="pass" aria-pressed="${MODE==='pass'}">ゲームIDとパスワード</button></div>
-    ${MODE==='code'?`<input id="lockCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="メンバーコード または 保存コード" aria-label="メンバーコードまたは保存コード">
-    <p class="hint">保存コードを入れると、そのデータを戻して入ります。</p>`
+    <div class="seg lockseg" role="tablist"><button type="button" data-mode="code" aria-pressed="${MODE==='code'}">コードで入る</button><button type="button" data-mode="pass" aria-pressed="${MODE==='pass'}">IDとパスワード</button></div>
+    ${MODE==='code'?`<input id="lockCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="メンバーコード" aria-label="メンバーコードまたは保存コード">
+    <p class="hint">保存コードを貼っても入れます（そのデータが戻ります）。</p>`
     :`<input id="lockId" class="plain" inputmode="numeric" autocomplete="username" placeholder="ゲームID" aria-label="ゲームID">
     <input id="lockPass" class="plain" type="password" autocomplete="current-password" placeholder="パスワード" aria-label="パスワード">
     <p class="hint">パスワードは、一度コードで入ったあとに決められます。忘れたときは管理者へ。</p>`}
@@ -449,7 +450,7 @@ function lockUI(msg){
     }else{req.id=$('lockId').value;req.pass=$('lockPass').value;if(!req.id||!req.pass){err.textContent='ゲームIDとパスワードを入れてください。';return}}
     err.textContent='確認中…'; btn.disabled=true;
     req.geo=await geo();
-    let r=null; try{r=await call('login',req)}catch(e){err.textContent='通信できませんでした。電波のよいところでもう一度どうぞ。';btn.disabled=false;return}
+    let r=null; try{r=await call('login',req)}catch(e){err.textContent='通信できませんでした（'+String(e&&e.message||e).slice(0,120)+'）';btn.disabled=false;return}
     if(!r.ok){err.textContent=r.msg;btn.disabled=false;return}
     ls.set(TOKKEY,r.token);
     if(MODE==='code')ls.set(KEY,norm(req.code));
@@ -500,8 +501,11 @@ async function flush(){
 }
 const origSet=Storage.prototype.setItem;
 Storage.prototype.setItem=function(k,v){origSet.call(this,k,v);if(k===DATAKEY&&this===window.localStorage)schedule(String(v))};
-async function check(){if(!SYNC)return;try{const r=await call('ping',SYNC.token);if(!r.ok)kicked(r)}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check();else flush()});
+let lastCheck=0;
+async function check(force){if(!SYNC)return;if(!force&&document.visibilityState!=='visible')return;if(Date.now()-lastCheck<20000&&!force)return;lastCheck=Date.now();try{const r=await call('ping',SYNC.token);if(!r.ok)kicked(r)}catch(e){}}
+window.addEventListener('focus',()=>check(true));
+document.addEventListener('pointerdown',()=>check(false),{passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check(true);else flush()});
 
 function kicked(r){
   stopSync(); ls.del(TOKKEY);
@@ -523,8 +527,8 @@ async function boot(token,me){
   ls.set(OWNKEY,String(me.no));
   if(state){delete state.__k; origSet.call(localStorage,DATAKEY,JSON.stringify(state))} else ls.del(DATAKEY);
   SYNC={token:token,last:upload?null:(state?JSON.stringify(state):null),pending:null,busy:false,timer:0};
-  SYNC.iv=setInterval(check,5*60*1000);
-  let P=null; try{P=JSON.parse(new TextDecoder().decode(new Uint8Array(await new Response(new Blob([Uint8Array.from(atob(a.pack),c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())))}catch(e){lockUI('本体を開けませんでした（'+esc(e&&e.message||e)+'）');return}
+  SYNC.iv=setInterval(check,60*1000);
+  let P=null; try{P=JSON.parse(new TextDecoder().decode(new Uint8Array(await new Response(new Blob([Uint8Array.from(atob(a.pack),c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer())))}catch(e){lockUI('本体を開けませんでした（'+esc(e&&e.message||e)+'）');return}
   a.view=P.view; a.js=P.js;
   const w=$('appWrap'); w.innerHTML=a.view;
   showOnly('appWrap');
