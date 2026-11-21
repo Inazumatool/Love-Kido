@@ -233,7 +233,7 @@ window.addEventListener("hashchange",route);
 const API_URL="https://script.google.com/macros/s/AKfycbz4qbFr8T7ts284vsswFeCb3Jl557WUPkvNYF8fWphxFOlzw2idg024ayaUWDkzXYA/exec",TOKKEY="inazuma-trial-session",CACHE="incdb-cache";
 const gate=msg=>{$("#filters").hidden=true;$("#proto").textContent="";$("#out").innerHTML=`<div class="empty">${msg}<br><br><a class="reset" style="display:inline-block;text-decoration:none" href="./">計算ツールを開く</a></div>`};
 async function call(fn,...args){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn,args}),credentials:"omit",redirect:"follow"});if(!r.ok)throw new Error("サーバーの応答 "+r.status);const j=await r.json();if(j.err)throw new Error(j.err);return j.r}
-function start(d,ic,ver){DB=d;ICONS=ic||{};prep();$("#filters").hidden=false;$("#proto").textContent=`キャラ${d.chars.length}人・必殺技${d.techs.length}個・シール${d.seals.length}種類（${d.built}時点のデータ）。データはHUB（inazumaelevencrosshub.com）と計算ツールのデータから作っています。`;route()}
+function start(d,ic,ver){DB=d;ICONS=ic||{};prep();$("#filters").hidden=false;$("#proto").textContent=`更新日：${(DB.built||"").replace(/-/g,"/")}`;route()}
 (async()=>{let tok=null;try{tok=localStorage.getItem(TOKKEY)}catch(e){}
   if(!tok)return gate("データベースは計算ツールのメンバー専用です。<br>先に計算ツールでログインしてから、もう一度開いてください。");
   let cache=null;try{cache=JSON.parse(localStorage.getItem(CACHE)||"null")}catch(e){}
