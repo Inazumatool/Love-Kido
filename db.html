@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>イナクロデータベース</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 計算ツールと同じ「淡い青のアクション・黒の選択中」の配色。左に検索条件、右に結果の2列（スマホは縦） */
+:root{
+  --bg:#f4f6fa;--card:#ffffff;--ink:#141821;--muted:#5d6678;--line:#d9dfea;
+  --blue:#2563eb;--blue-soft:#e6eeff;--sel:#141821;--sel-ink:#ffffff;
+  --wind:#1c8fc4;--forest:#2e8b3d;--fire:#d33a2c;--mount:#b7791f;
+  --f-disp:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"M PLUS 1p","Hiragino Sans","Yu Gothic",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10131a;--card:#181c25;--ink:#e8ebf2;--muted:#9aa3b5;--line:#2b3140;
+  --blue:#7aa2ff;--blue-soft:#1e2a45;--sel:#e8ebf2;--sel-ink:#10131a;
+  --wind:#5cc0ee;--forest:#6cc17a;--fire:#ff7a6b;--mount:#e5ad52;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10131a;--card:#181c25;--ink:#e8ebf2;--muted:#9aa3b5;--line:#2b3140;
+  --blue:#7aa2ff;--blue-soft:#1e2a45;--sel:#e8ebf2;--sel-ink:#10131a;
+  --wind:#5cc0ee;--forest:#6cc17a;--fire:#ff7a6b;--mount:#e5ad52;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.6 var(--f-body)}
+header.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.logo{font:900 20px/1.2 var(--f-disp);letter-spacing:.02em;margin:0}
+.logo small{font:700 11px var(--f-body);color:var(--muted);margin-left:8px}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs a{padding:6px 14px;border-radius:999px;color:var(--ink);text-decoration:none;font-weight:700;font-size:13px;border:1px solid var(--line)}
+nav.tabs a[aria-current="page"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+.back{margin-left:auto;font-size:12px;color:var(--blue);text-decoration:none;font-weight:700}
+main{padding:16px 20px 40px;max-width:1400px;margin:0 auto}
+.proto{font-size:12px;color:var(--muted);margin:0 0 12px}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+.layout>*{min-width:0}
+aside.filters{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px;position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto}
+@media (max-width:860px){aside.filters{position:static;max-height:none}header.top{position:static;padding:12px 16px}main{padding:12px 16px 32px}.back{margin-left:0}}
+.fg{display:grid;gap:5px}
+.fl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+input[type=search],input[type=number],select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input[type=search]:focus,input[type=number]:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chips button{font:700 12px var(--f-body);padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+.chk{display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer}
+.reset{font:700 12px var(--f-body);padding:7px 10px;border-radius:10px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--blue);cursor:pointer}
+.sum{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.sum b{font:900 22px var(--f-disp);font-variant-numeric:tabular-nums}
+.sum span{color:var(--muted);font-size:12px}
+.list{display:grid;gap:8px}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:grid;gap:4px}
+.pc .hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.pc .who{font-weight:800}
+.pc .who small{font-weight:400;color:var(--muted);margin-left:4px}
+.pn{font:800 15px var(--f-disp)}
+.kd{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--blue-soft);color:var(--blue)}
+.ef{font-size:11px;padding:1px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}.ef.up{color:var(--forest);border-color:currentColor}.ef.dn{color:var(--fire);border-color:currentColor}
+.desc{white-space:pre-line;font-size:13px}
+.lvbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.lvbar input{flex:1;max-width:240px}
+.ul{font-size:11px;color:var(--muted)}
+.fc{width:36px;height:36px;border-radius:6px;flex:none;vertical-align:middle}.fc.sm{width:28px;height:28px}
+.el{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 4px;border-radius:6px;font-size:11px;font-weight:800;color:#fff}
+.el-風{background:var(--wind)}.el-林{background:var(--forest)}.el-火{background:var(--fire)}.el-山{background:var(--mount)}
+.tw{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;white-space:nowrap}
+th{font-size:11px;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--card)}
+th.s{cursor:pointer}th.s[aria-sort]::after{content:" ▾"}th.s[aria-sort="ascending"]::after{content:" ▴"}
+td.n,th.n{text-align:right}
+td.w{white-space:normal;min-width:180px}
+tr:last-child td{border-bottom:0}
+.own a{color:var(--ink)}
+.mut{color:var(--muted)}
+.empty{padding:30px;text-align:center;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px}
+mark{background:#ffe58a;color:inherit;border-radius:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 class="logo">イナクロデータベース</h1>
+  <nav class="tabs" aria-label="データの種類">
+    <a href="#passive">パッシブ</a><a href="#seal">シール</a><a href="#tech">必殺技</a><a href="#scroll">秘伝書</a><a href="#chara">キャラ</a>
+  </nav>
+  <a class="back" href="./">計算ツールへ →</a>
+</header>
+<main>
+  <p class="proto" id="proto">データを読み込んでいます…</p>
+  <div class="layout">
+    <aside class="filters" id="filters" aria-label="検索条件"></aside>
+    <section id="out" aria-live="polite"></section>
+  </div>
+</main>
+<script>
+"use strict";
+let DB=null,ICONS={};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ELS=["風","林","火","山"],POS=["FW","MF","DF","GK"];
+const elb=e=>e?`<span class="el el-${e}">${e}</span>`:"";
+const S={view:"passive",passive:{q:"",kind:[],buff:[],deb:[],tgt:[],pos:[],el:[],r:[],tag:"",sort:"char",lv:{}},seal:{q:"",slot:[],stat:[],kind:[],pos:[],el:[],src:[]},tech:{q:"",tp:[],el:[],scr:[],cat:[],sort:"pw",dir:-1},scroll:{q:"",cat:[]},chara:{q:"",pos:[],el:[],r:[],tag:"",sort:"k",dir:-1,lv:440,rk:9,raw:false}};
+try{const v=JSON.parse(localStorage.getItem("incdb-state")||"null");if(v&&v.passive){for(const k in v)if(S[k]&&typeof S[k]==="object")Object.assign(S[k],v[k])}}catch(e){}
+const save=()=>{try{localStorage.setItem("incdb-state",JSON.stringify(S))}catch(e){}};
+
+/* パッシブの「上がるもの」「対象」を本文から読む */
+/* パッシブ本文から「だれの・何を・いくつ・上げる/下げる」を拾う */
+const CATS=["キック","テクニック","ブロック","キャッチ","スピード","全パラメータ","シュート技","ドリブル技","ブロック技","キーパー技","技全般"];
+let TECHTP={};
+function catOf(ph){const r=[];if(/全パラメータ/.test(ph))return["全パラメータ"];const isTech=/技|威力/.test(ph);
+  if(isTech){let hit=false;[["シュート技",/シュート技/],["ドリブル技",/ドリブル技/],["ブロック技",/ブロック技|シュートブロック|ドリブルブロック/],["キーパー技",/キーパー技/]].forEach(([n,re])=>{if(re.test(ph)){r.push(n);hit=true}});
+    if(!hit){for(const nm in TECHTP){if(ph.includes(nm)){const tp=TECHTP[nm];r.push(tp==="シュート"?"シュート技":tp==="ドリブル"?"ドリブル技":tp==="キーパー"?"キーパー技":"ブロック技");hit=true;break}}}
+    if(!hit)r.push("技全般");return r}
+  [["キック",/キック/],["テクニック",/テクニック/],["ブロック",/ブロック/],["キャッチ",/キャッチ/],["スピード",/スピード/]].forEach(([n,re])=>{if(re.test(ph))r.push(n)});return r}
+function effects(t){const out=[];t.split("\n").forEach(line=>{const re=/([^、。]*?)(?:を|が)?(-?\d+)(上昇|減少|下降|低下)/g;let m;while((m=re.exec(line))){const ph=m[1],up=m[3]==="上昇",n=Math.abs(+m[2]);if(/消費TP|消費ＴＰ|ファウル|最大ＴＰ|最大TP/.test(ph))continue;const foe=/敵/.test(ph)||(!up&&/敵/.test(line));if(up&&!foe)catOf(ph).forEach(c=>out.push({kind:"buff",cat:c,n,ph}));else if(!up&&foe)catOf(ph).forEach(c=>out.push({kind:"deb",cat:c,n,ph}))}});return out}
+function tgtOf(fx){const r=new Set();fx.filter(e=>e.kind==="buff").forEach(e=>{if(/自身/.test(e.ph))r.add("自身");if(/味方|の味方|属性の|ＦＷ|ＭＦ|ＤＦ|ＧＫ/.test(e.ph)&&!/^自身/.test(e.ph.trim()))r.add("味方")});return[...r]}
+
+const condOf=n=>{const m=n.match(/^【([^】]+)】/);return m?m[1]:""};
+
+function prep(){
+  DB.techs.forEach(t=>TECHTP[t.n]=t.tp);DB.buffCats=new Set();DB.debCats=new Set();
+  DB.chars.forEach(c=>{c.ps=c.ps.filter(p=>!/^最大ＴＰ＋$/.test(p.n));c.ps.forEach(p=>{const last=p.lv[p.lv.length-1][1];p.fx=effects(last);p.buff=[...new Set(p.fx.filter(e=>e.kind==="buff").map(e=>e.cat))];p.deb=[...new Set(p.fx.filter(e=>e.kind==="deb").map(e=>e.cat))];p.tgt=tgtOf(p.fx);p.cond=condOf(p.n);p.buff.forEach(x=>DB.buffCats.add(x));p.deb.forEach(x=>DB.debCats.add(x));p.hay=(c.n+c.full+c.sub+p.n+last).toLowerCase()})});
+  DB.byId=Object.fromEntries(DB.chars.map(c=>[c.id,c]));
+  DB.tagList=[...new Set(DB.chars.flatMap(c=>[c.tags[0],c.tags[2]]).filter(Boolean))];
+  DB.scrollBy={};DB.scrolls.forEach(s=>{(DB.scrollBy[s.tech]=DB.scrollBy[s.tech]||[]).push(s)});
+  DB.sealSrc={};DB.sealsrc.forEach(r=>{(DB.sealSrc[r[2]]=DB.sealSrc[r[2]]||[]).push(r)});
+}
+
+/* 並べ替え用の値：最大レベルの文章から「〇〇を数字上昇/減少」を拾う */
+function valOf(p,bs,ds){let best=0;p.fx.forEach(e=>{if((bs.length||ds.length)&&!((e.kind==="buff"&&bs.includes(e.cat))||(e.kind==="deb"&&ds.includes(e.cat))))return;if(e.n>best)best=e.n});p.v=best;return best}
+/* 共通の部品 */
+const chips=(key,field,opts,lab)=>`<div class="fg"><span class="fl">${lab}</span><div class="chips" role="group" aria-label="${lab}">${opts.map(o=>{const v=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;return`<button type="button" data-k="${key}" data-f="${field}" data-v="${esc(v)}" aria-pressed="${S[key][field].includes(v)}">${esc(t)}</button>`}).join("")}</div></div>`;
+const search=(key,ph)=>`<div class="fg"><label class="fl" for="q-${key}">ことばで探す</label><input type="search" id="q-${key}" data-k="${key}" data-f="q" placeholder="${ph}" value="${esc(S[key].q)}"></div>`;
+const tagSel=key=>`<div class="fg"><label class="fl" for="tg-${key}">学校・シリーズ</label><select id="tg-${key}" data-k="${key}" data-f="tag"><option value="">すべて</option>${DB.tagList.map(t=>`<option ${S[key].tag===t?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+const resetBtn=key=>`<button type="button" class="reset" data-reset="${key}">条件をリセット</button>`;
+const inAny=(sel,vals)=>!sel.length||sel.some(v=>vals.includes(v));
+const hl=(s,q)=>{s=esc(s);if(!q)return s;const i=s.toLowerCase().indexOf(esc(q).toLowerCase());return i<0?s:s.slice(0,i)+"<mark>"+s.slice(i,i+esc(q).length)+"</mark>"+s.slice(i+esc(q).length)};
+const charOk=(c,f)=>inAny(f.pos,[c.pos])&&inAny(f.el,[c.el])&&inAny(f.r,[String(c.r)])&&(!f.tag||c.tags.includes(f.tag));
+const face=(c,sm)=>ICONS[c.id]?`<img class="fc${sm?" sm":""}" src="data:image/webp;base64,${ICONS[c.id]}" alt="" loading="lazy">`:"";
+const who=c=>`${face(c)}${elb(c.el)} <span class="who">${esc(c.n)}<small>★${c.r}・${c.pos}・${esc(c.team)}${c.sub&&!/メンバー/.test(c.sub)?"・"+esc(c.sub):""}</small></span>`;
+
+/* パッシブ */
+function vPassive(){
+  const f=S.passive;
+  $("#filters").innerHTML=search("passive","例：結束、ドリブル、豪炎寺")+
+    chips("passive","kind",[["Lv1から","Lv1から（3レ）"],["Lv11から","Lv11から（4レ）"],["Lv41から","Lv41から（5レ）"],["覚醒","覚醒"]],"種類")+
+    chips("passive","buff",CATS.filter(c=>DB.buffCats.has(c)),"バフ（味方・自分を上げる）")+chips("passive","deb",CATS.filter(c=>DB.debCats.has(c)),"デバフ（相手を下げる）")+
+    chips("passive","tgt",["自身","味方"],"バフがだれに効くか")+
+    chips("passive","pos",POS,"キャラのポジション")+chips("passive","el",ELS,"キャラの属性")+chips("passive","r",[["3","★3"],["2","★2"],["1","★1"]],"レアリティ")+tagSel("passive")+
+    `<div class="fg"><label class="fl" for="ps-sort">並び順</label><select id="ps-sort" data-psort="1"><option value="char" ${f.sort==="char"?"selected":""}>キャラ順</option><option value="desc" ${f.sort==="desc"?"selected":""}>値が大きい順</option><option value="asc" ${f.sort==="asc"?"selected":""}>値が小さい順</option></select><span class="ul">値は最大レベルの数値で並べます。バフ・デバフの項目を選ぶと、その項目の数値で並べます。</span></div>`+resetBtn("passive");
+  const q=f.q.trim().toLowerCase();const rows=[];
+  DB.chars.forEach(c=>{if(!charOk(c,f))return;c.ps.forEach((p,i)=>{if(!inAny(f.kind,[p.k]))return;if(f.buff.length&&!f.buff.some(e=>p.buff.includes(e)))return;if(f.deb.length&&!f.deb.some(e=>p.deb.includes(e)))return;if(!inAny(f.tgt,p.tgt))return;if(q&&!p.hay.includes(q))return;rows.push([c,p,i])})});
+  if(f.sort!=="char"){rows.forEach(r=>r[3]=valOf(r[1],f.buff,f.deb));rows.sort((a,b)=>(f.sort==="desc"?b[3]-a[3]:a[3]-b[3]))}
+  const cap=300;
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>件のパッシブ${rows.length>cap?`（先頭${cap}件を表示。条件をしぼってください）`:""}</span></div>`+(rows.length?`<div class="list">${rows.slice(0,cap).map(([c,p,i])=>{const key=c.id+"-"+i,n=p.lv.length,cur=Math.min(f.lv[key]||n,n),L=p.lv[cur-1];
+    return`<article class="pc"><div class="hd">${who(c)}</div><div class="hd"><span class="pn">${hl(p.n,f.q.trim())}</span><span class="kd">${p.k}</span>${f.sort!=="char"?`<span class="kd">最大${p.v}</span>`:""}${p.buff.map(e=>`<span class="ef up">↑${e}</span>`).join("")}${p.deb.map(e=>`<span class="ef dn">↓相手の${e}</span>`).join("")}</div>
+    <div class="lvbar"><label for="lv-${key}">Lv${cur}／${n}</label><input type="range" id="lv-${key}" min="1" max="${n}" value="${cur}" data-lv="${key}"><span class="ul">${esc(L[0])}</span></div>
+    <div class="desc">${hl(L[1],f.q.trim())}</div></article>`}).join("")}</div>`:`<div class="empty">当てはまるパッシブがありません。条件を減らしてみてください。</div>`);
+}
+
+/* シール */
+const SN={kick:"キック",tech:"テクニック",dribblep:"ドリブルパワー",block:"ブロック",catch:"キャッチ",shoot:"シュートパワー",blockp:"ブロックパワー",keeper:"キーパーパワー",all:"パワー（全種類）"};
+const KN={pos:"ポジション",trig:"条件つき",fixed:"固定値",free:"属性"};
+const sealName=s=>(s.pos?`【${s.pos}】`:s.pre?`【${s.pre}】`:"")+SN[s.stat].replace("（全種類）","")+"＋"+(s.attr?`〈${s.attr}〉`:"")+(s.kind==="fixed"?`（固定）`:"");
+function vSeal(){
+  const f=S.seal;
+  $("#filters").innerHTML=search("seal","例：破竹、キック")+chips("seal","slot",[["main","メイン"],["sub","サブ"]],"枠")+chips("seal","stat",Object.entries(SN),"上がるもの")+chips("seal","kind",Object.entries(KN),"条件の種類")+chips("seal","pos",POS,"ポジション")+chips("seal","el",ELS,"属性")+chips("seal","src",["配布","ストア","交換所"],"入手方法")+resetBtn("seal");
+  const q=f.q.trim().toLowerCase();
+  const rows=DB.seals.filter(s=>inAny(f.slot,[s.slot])&&inAny(f.stat,[s.stat])&&inAny(f.kind,[s.kind])&&inAny(f.pos,[s.pos||""])&&inAny(f.el,[s.attr||""])&&inAny(f.src,(DB.sealSrc[s.id]||[]).map(r=>r[0]))&&(!q||sealName(s).toLowerCase().includes(q)));
+  const val=(s,i)=>s.kind==="fixed"?(i===0?"+"+s.fixed:""):(s.lv&&s.lv[i]!=null?"+"+s.lv[i].toLocaleString():"");
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>種類のシール</span></div>`+(rows.length?`<div class="tw"><table><thead><tr><th>シール</th><th>枠</th><th>条件の種類</th>${[1,2,3,4,5].map(i=>`<th class="n">Lv${i}</th>`).join("")}<th>入手方法</th></tr></thead><tbody>${rows.map(s=>`<tr><td><b>${hl(sealName(s),f.q.trim())}</b></td><td>${s.slot==="main"?"メイン":"サブ"}</td><td>${KN[s.kind]}</td>${[0,1,2,3,4].map(i=>`<td class="n">${val(s,i)}</td>`).join("")}<td class="w mut">${(DB.sealSrc[s.id]||[]).map(r=>r[0]===r[3]?esc(r[0]):`${esc(r[1])}（${esc(r[3])}${r[4]&&r[4]!=="1"?"×"+esc(r[4]):""}）`).join("、")||"―"}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">当てはまるシールがありません。</div>`);
+}
+
+/* 必殺技 */
+const TPS=["シュート","ドリブル","ブロック","ドリブルブロック","キーパー"];
+function vTech(){
+  const f=S.tech;
+  $("#filters").innerHTML=search("tech","例：ゴッドハンド")+chips("tech","tp",TPS,"種類")+chips("tech","el",ELS,"属性")+chips("tech","scr",["あり","なし"],"秘伝書")+chips("tech","cat",[...new Set(DB.scrolls.map(s=>s.cat))].map(c=>[c,c==="ストア"?"ストア（購入）":c]),"秘伝書の入手方法")+`<p class="ul">「ブロック」はシュートも止められる技、「ドリブルブロック」はドリブルだけを止める技です。</p>`+resetBtn("tech");
+  const q=f.q.trim().toLowerCase();
+  let rows=DB.techs.filter(t=>inAny(f.tp,[t.tp])&&inAny(f.el,[t.el])&&inAny(f.scr,[DB.scrollBy[t.n]?"あり":"なし"])&&inAny(f.cat,(DB.scrollBy[t.n]||[]).map(s=>s.cat))&&(!q||t.n.toLowerCase().includes(q)));
+  const key={n:t=>t.n,pw:t=>t.pw[9]||0,pw1:t=>t.pw[0]||0,cost:t=>t.cost[9]||0,own:t=>t.own.length};
+  rows.sort((a,b)=>{const x=key[f.sort](a),y=key[f.sort](b);return(x>y?1:x<y?-1:0)*f.dir});
+  const th=(k,l,n)=>`<th class="s${n?" n":""}" data-sort="tech:${k}" ${f.sort===k?`aria-sort="${f.dir>0?"ascending":"descending"}"`:""}>${l}</th>`;
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>個の必殺技（見出しを押すと並べ替え）</span></div>`+(rows.length?`<div class="tw"><table><thead><tr>${th("n","技")}<th>種類</th><th>属性</th>${th("pw1","威力Lv1",1)}${th("pw","威力Lv10",1)}${th("cost","消費TP",1)}<th class="n">CT</th><th class="n">クリティカルLv10</th><th>覚えるキャラ</th><th>秘伝書</th></tr></thead><tbody>${rows.map(t=>`<tr><td><b>${hl(t.n,f.q.trim())}</b></td><td>${t.tp}</td><td>${elb(t.el)}</td><td class="n">${t.pw[0]??"―"}</td><td class="n"><b>${t.pw[9]??"―"}</b></td><td class="n">${t.cost[9]??"―"}</td><td class="n">${t.cd[9]??"―"}</td><td class="n">${esc(t.crit[9]||"―")}</td><td class="w own">${t.own.map(([id,ul])=>{const c=DB.byId[id];return`${esc(c.n)}<span class="mut">（★${c.r}${ul>1?"・Lv"+ul+"で習得":""}）</span>`}).join("、")||"<span class='mut'>なし</span>"}</td><td class="w mut">${(DB.scrollBy[t.n]||[]).map(s=>`${esc(s.src)}（${esc(s.how)}）`).join("、")||"―"}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">当てはまる技がありません。</div>`);
+}
+
+/* 秘伝書 */
+function vScroll(){
+  const f=S.scroll;const cats=[...new Set(DB.scrolls.map(s=>s.cat))];
+  $("#filters").innerHTML=search("scroll","例：剛の一閃、コラボ")+chips("scroll","cat",cats,"入手の種類")+resetBtn("scroll");
+  const q=f.q.trim().toLowerCase();
+  const rows=DB.scrolls.filter(s=>inAny(f.cat,[s.cat])&&(!q||(s.tech+s.src).toLowerCase().includes(q)));
+  const g={};rows.forEach(s=>{(g[s.cat+"｜"+s.src]=g[s.cat+"｜"+s.src]||[]).push(s)});
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>件の秘伝書（${Object.keys(g).length}か所）</span></div>`+(rows.length?`<div class="list">${Object.entries(g).map(([k,a])=>`<article class="pc"><div class="hd"><span class="kd">${esc(a[0].cat)}</span><span class="pn">${hl(a[0].src,f.q.trim())}</span></div><div class="tw" style="border:0"><table><tbody>${a.map(s=>{const t=DB.techs.find(x=>x.n===s.tech);return`<tr><td><b>${hl(s.tech,f.q.trim())}</b></td><td>${t?t.tp:""}</td><td>${t?elb(t.el):""}</td><td class="n">${t&&t.pw[9]?"威力"+t.pw[9]:""}</td><td class="mut">${esc(s.how)}${s.lim&&s.lim!=="1"&&s.lim!=="w"?"・"+esc(s.lim)+"個まで":""}</td></tr>`}).join("")}</tbody></table></div></article>`).join("")}</div>`:`<div class="empty">当てはまる秘伝書がありません。</div>`);
+}
+
+/* キャラ */
+function vChara(){
+  const f=S.chara;
+  $("#filters").innerHTML=search("chara","例：桜咲")+chips("chara","pos",POS,"ポジション")+chips("chara","el",ELS,"属性")+chips("chara","r",[["3","★3"],["2","★2"],["1","★1"]],"レアリティ")+tagSel("chara")+
+    `<div class="fg"><label class="fl" for="c-lv">レベル（1〜440）</label><input type="number" id="c-lv" min="1" max="440" value="${f.lv}" ${f.raw?"disabled":""}></div><div class="fg"><label class="fl" for="c-rk">覚醒ランク</label><select id="c-rk" ${f.raw?"disabled":""}>${RANKS.map((r,i)=>`<option value="${i}" ${f.rk===i?"selected":""}>${r[0]}（×${r[1].toFixed(2)}）</option>`).join("")}</select></div><label class="chk"><input type="checkbox" id="c-raw" ${f.raw?"checked":""}> 素の値を表示する</label>`+`<p class="ul">数値はレベルと覚醒ランクをかけた値です（装備・コア枠・パッシブ・シールは入っていません）。</p>`+resetBtn("chara");
+  const q=f.q.trim().toLowerCase();
+  let rows=DB.chars.filter(c=>charOk(c,f)&&(!q||(c.n+c.full+c.sub+c.team).toLowerCase().includes(q)));
+  const st=c=>f.raw?[c.k,c.t,c.b,c.c]:[c.k,c.t,c.b,c.c].map(b=>statAt(b,f.lv,f.rk));rows.forEach(c=>c._s=st(c));
+  const key={n:c=>c.n,code:c=>c.code,k:c=>c._s[0],t:c=>c._s[1],b:c=>c._s[2],c:c=>c._s[3],sum:c=>c._s.reduce((a,b)=>a+b,0),rel:c=>c.rel};
+  rows.sort((a,b)=>{const x=key[f.sort](a),y=key[f.sort](b);return(x>y?1:x<y?-1:0)*f.dir});
+  const th=(k,l,n)=>`<th class="s${n?" n":""}" data-sort="chara:${k}" ${f.sort===k?`aria-sort="${f.dir>0?"ascending":"descending"}"`:""}>${l}</th>`;
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>人・${f.raw?"素の値":`Lv${f.lv}・${RANKS[f.rk][0]}`}（見出しを押すと並べ替え）</span></div>`+(rows.length?`<div class="tw"><table><thead><tr>${th("n","キャラ")}<th>★</th><th>属性</th><th>位置</th><th>学校・チーム</th><th>タイプ</th>${th("code","基礎値の型")}${th("k","キック",1)}${th("t","テクニック",1)}${th("b","ブロック",1)}${th("c","キャッチ",1)}${th("sum","合計",1)}${th("rel","実装日")}<th>必殺技</th></tr></thead><tbody>${rows.map(c=>`<tr><td><span style="display:flex;gap:8px;align-items:center">${face(c,1)}<span><b>${hl(c.n,f.q.trim())}</b>${c.sub&&!/メンバー/.test(c.sub)?`<br><span class="ul">${esc(c.sub)}</span>`:""}</span></span></td><td>★${c.r}</td><td>${elb(c.el)}</td><td>${c.pos}</td><td>${esc(c.team)}</td><td>${esc(c.type)}</td><td>${esc(c.code)}</td>${c._s.map(v=>`<td class="n">${v.toLocaleString()}</td>`).join("")}<td class="n">${c._s.reduce((a,b)=>a+b,0).toLocaleString()}</td><td>${esc(c.rel)}</td><td class="mut">${c.tech.map(t=>esc(t[0])).join("・")}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">当てはまるキャラがいません。</div>`);
+}
+
+const RANKS=[["NORMAL",1],["NORMAL+",1.1],["GROWING",1.2],["GROWING+",1.3],["ADVANCED",1.4],["ADVANCED+",1.5],["TOP",1.6],["TOP+",1.7],["LEGENDARY",1.85],["LEGENDARY+",2]];
+function statAt(b,lv,rk){lv=Math.min(440,Math.max(1,lv|0||1));const m=Math.round(DB.lvmul[lv-1]*10);const x=b*m,q=Math.floor(x/20000),r=x-q*20000;const v=q+(r>10000||(r===10000&&q%2)?1:0);return Math.floor(v*Math.round(RANKS[rk][1]*100)/100)}
+const VIEWS={passive:vPassive,seal:vSeal,tech:vTech,scroll:vScroll,chara:vChara};
+function render(){document.querySelectorAll("nav.tabs a").forEach(a=>a.getAttribute("href")==="#"+S.view?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));VIEWS[S.view]();save()}
+function route(){const h=location.hash.slice(1);if(VIEWS[h])S.view=h;render()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-k][data-f][data-v]");if(b&&b.tagName==="BUTTON"){const a=S[b.dataset.k][b.dataset.f],v=b.dataset.v,i=a.indexOf(v);i>=0?a.splice(i,1):a.push(v);render();return}
+  const r=e.target.closest("[data-reset]");if(r){const k=r.dataset.reset,o=S[k];for(const f in o){if(Array.isArray(o[f]))o[f]=[];else if(f==="q"||f==="tag")o[f]=""}if(k==="passive"){o.sort="char";o.lv={}}if(k==="chara"){o.lv=440;o.rk=9;o.raw=false}render();return}
+  const s=e.target.closest("[data-sort]");if(s){const[k,f]=s.dataset.sort.split(":");if(S[k].sort===f)S[k].dir*=-1;else{S[k].sort=f;S[k].dir=f==="n"||f==="rel"||f==="code"?1:-1}render()}});
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset.lv){const k=t.dataset.lv;S.passive.lv[k]=+t.value;const art=t.closest(".pc");const[cid,i]=k.split("-");const p=DB.byId[cid].ps[+i],L=p.lv[+t.value-1];art.querySelector(".lvbar label").textContent=`Lv${t.value}／${p.lv.length}`;art.querySelector(".ul").textContent=L[0];art.querySelector(".desc").innerHTML=hl(L[1],S.passive.q.trim());save();return}
+  if(t.id==="c-lv"){const v=+t.value;if(v>=1&&v<=440){S.chara.lv=v;const pos=t.selectionStart;vChara();save();const n=$("#c-lv");n.focus();}return}
+  if(t.type==="search"){S[t.dataset.k].q=t.value;const pos=t.selectionStart;VIEWS[S.view]();save();const n=$("#q-"+t.dataset.k);if(n){n.focus();n.setSelectionRange(pos,pos)}}});
+document.addEventListener("change",e=>{const t=e.target;if(t.tagName==="SELECT"&&t.dataset.f==="tag"){S[t.dataset.k].tag=t.value;render()}else if(t.dataset.psort){S.passive.sort=t.value;render()}else if(t.id==="c-rk"){S.chara.rk=+t.value;render()}else if(t.id==="c-raw"){S.chara.raw=t.checked;render()}});
+window.addEventListener("hashchange",route);
+/* 計算ツールと同じログイン（同じサイトのブラウザに残っている通行証）でデータを受け取る */
+const API_URL="https://script.google.com/macros/s/AKfycbz4qbFr8T7ts284vsswFeCb3Jl557WUPkvNYF8fWphxFOlzw2idg024ayaUWDkzXYA/exec",TOKKEY="inazuma-trial-session",CACHE="incdb-cache";
+const gate=msg=>{$("#filters").hidden=true;$("#proto").textContent="";$("#out").innerHTML=`<div class="empty">${msg}<br><br><a class="reset" style="display:inline-block;text-decoration:none" href="./">計算ツールを開く</a></div>`};
+async function call(fn,...args){const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn,args}),credentials:"omit",redirect:"follow"});if(!r.ok)throw new Error("サーバーの応答 "+r.status);const j=await r.json();if(j.err)throw new Error(j.err);return j.r}
+function start(d,ic,ver){DB=d;ICONS=ic||{};prep();$("#filters").hidden=false;$("#proto").textContent=`キャラ${d.chars.length}人・必殺技${d.techs.length}個・シール${d.seals.length}種類（${d.built}時点のデータ）。データはHUB（inazumaelevencrosshub.com）と計算ツールのデータから作っています。`;route()}
+(async()=>{let tok=null;try{tok=localStorage.getItem(TOKKEY)}catch(e){}
+  if(!tok)return gate("データベースは計算ツールのメンバー専用です。<br>先に計算ツールでログインしてから、もう一度開いてください。");
+  let cache=null;try{cache=JSON.parse(localStorage.getItem(CACHE)||"null")}catch(e){}
+  if(cache&&cache.db){try{start(JSON.parse(cache.db),cache.icons?JSON.parse(cache.icons):{},cache.ver)}catch(e){cache=null}}
+  else $("#out").innerHTML='<div class="empty">データを読み込んでいます…</div>';
+  let r;try{r=await call("loadDb",tok,cache&&cache.ver||"")}catch(e){if(!cache)$("#out").innerHTML='<div class="empty">通信できませんでした。電波のよいところでページを開き直してください。</div>';return}
+  if(!r||!r.ok){try{localStorage.removeItem(CACHE)}catch(e){}return gate(r&&r.reason==="kicked"?"別の端末でログインされたので、この端末はログアウトしました。<br>計算ツールでログインし直してください。":r&&r.reason==="expired"?"ログインの期限が切れました。<br>計算ツールでログインし直してください。":(r&&r.msg)||"データを読み込めませんでした。")}
+  if(r.same)return;
+  try{localStorage.setItem(CACHE,JSON.stringify({ver:r.ver,db:r.db,icons:r.icons}))}catch(e){try{localStorage.removeItem(CACHE)}catch(_){}}
+  start(JSON.parse(r.db),r.icons?JSON.parse(r.icons):{},r.ver)})();
+</script>
+</body>
+</html>
