@@ -108,6 +108,7 @@ const ELS=["風","林","火","山"],POS=["FW","MF","DF","GK"];
 const elb=e=>e?`<span class="el el-${e}">${e}</span>`:"";
 const S={view:"passive",passive:{q:"",kind:[],buff:[],deb:[],tgt:[],pos:[],el:[],r:[],tag:"",sort:"char",lv:{}},seal:{q:"",slot:[],stat:[],kind:[],pos:[],el:[],src:[]},tech:{q:"",tp:[],el:[],scr:[],cat:[],sort:"pw",dir:-1},scroll:{q:"",cat:[]},chara:{q:"",pos:[],el:[],r:[],tag:"",sort:"k",dir:-1,lv:440,rk:9,raw:false}};
 try{const v=JSON.parse(localStorage.getItem("incdb-state")||"null");if(v&&v.passive){for(const k in v)if(S[k]&&typeof S[k]==="object")Object.assign(S[k],v[k])}}catch(e){}
+S.passive.kind=S.passive.kind.filter(k=>k==="レベルパッシブ"||k==="覚醒");
 const save=()=>{try{localStorage.setItem("incdb-state",JSON.stringify(S))}catch(e){}};
 
 /* パッシブの「上がるもの」「対象」を本文から読む */
@@ -150,17 +151,17 @@ const who=c=>`${face(c)}${elb(c.el)} <span class="who">${esc(c.n)}<small>★${c.
 function vPassive(){
   const f=S.passive;
   $("#filters").innerHTML=search("passive","例：結束、ドリブル、豪炎寺")+
-    chips("passive","kind",[["Lv1から","Lv1から（3レ）"],["Lv11から","Lv11から（4レ）"],["Lv41から","Lv41から（5レ）"],["覚醒","覚醒"]],"種類")+
+    chips("passive","kind",["レベルパッシブ","覚醒"],"種類")+
     chips("passive","buff",CATS.filter(c=>DB.buffCats.has(c)),"バフ（味方・自分を上げる）")+chips("passive","deb",CATS.filter(c=>DB.debCats.has(c)),"デバフ（相手を下げる）")+
     chips("passive","tgt",["自身","味方"],"バフがだれに効くか")+
     chips("passive","pos",POS,"キャラのポジション")+chips("passive","el",ELS,"キャラの属性")+chips("passive","r",[["3","★3"],["2","★2"],["1","★1"]],"レアリティ")+tagSel("passive")+
     `<div class="fg"><label class="fl" for="ps-sort">並び順</label><select id="ps-sort" data-psort="1"><option value="char" ${f.sort==="char"?"selected":""}>キャラ順</option><option value="desc" ${f.sort==="desc"?"selected":""}>値が大きい順</option><option value="asc" ${f.sort==="asc"?"selected":""}>値が小さい順</option></select><span class="ul">値は最大レベルの数値で並べます。バフ・デバフの項目を選ぶと、その項目の数値で並べます。</span></div>`+resetBtn("passive");
   const q=f.q.trim().toLowerCase();const rows=[];
-  DB.chars.forEach(c=>{if(!charOk(c,f))return;c.ps.forEach((p,i)=>{if(!inAny(f.kind,[p.k]))return;if(f.buff.length&&!f.buff.some(e=>p.buff.includes(e)))return;if(f.deb.length&&!f.deb.some(e=>p.deb.includes(e)))return;if(!inAny(f.tgt,p.tgt))return;if(q&&!p.hay.includes(q))return;rows.push([c,p,i])})});
+  DB.chars.forEach(c=>{if(!charOk(c,f))return;c.ps.forEach((p,i)=>{if(!inAny(f.kind,[p.k==="覚醒"?"覚醒":"レベルパッシブ"]))return;if(f.buff.length&&!f.buff.some(e=>p.buff.includes(e)))return;if(f.deb.length&&!f.deb.some(e=>p.deb.includes(e)))return;if(!inAny(f.tgt,p.tgt))return;if(q&&!p.hay.includes(q))return;rows.push([c,p,i])})});
   if(f.sort!=="char"){rows.forEach(r=>r[3]=valOf(r[1],f.buff,f.deb));rows.sort((a,b)=>(f.sort==="desc"?b[3]-a[3]:a[3]-b[3]))}
   const cap=300;
   $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>件のパッシブ${rows.length>cap?`（先頭${cap}件を表示。条件をしぼってください）`:""}</span></div>`+(rows.length?`<div class="list">${rows.slice(0,cap).map(([c,p,i])=>{const key=c.id+"-"+i,n=p.lv.length,cur=Math.min(f.lv[key]||n,n),L=p.lv[cur-1];
-    return`<article class="pc"><div class="hd">${who(c)}</div><div class="hd"><span class="pn">${hl(p.n,f.q.trim())}</span><span class="kd">${p.k}</span>${f.sort!=="char"?`<span class="kd">最大${p.v}</span>`:""}${p.buff.map(e=>`<span class="ef up">↑${e}</span>`).join("")}${p.deb.map(e=>`<span class="ef dn">↓相手の${e}</span>`).join("")}</div>
+    return`<article class="pc"><div class="hd">${who(c)}</div><div class="hd"><span class="pn">${hl(p.n,f.q.trim())}</span><span class="kd">${p.k==="覚醒"?"覚醒":"レベルパッシブ"}</span>${f.sort!=="char"?`<span class="kd">最大${p.v}</span>`:""}${p.buff.map(e=>`<span class="ef up">↑${e}</span>`).join("")}${p.deb.map(e=>`<span class="ef dn">↓相手の${e}</span>`).join("")}</div>
     <div class="lvbar"><label for="lv-${key}">Lv${cur}／${n}</label><input type="range" id="lv-${key}" min="1" max="${n}" value="${cur}" data-lv="${key}"><span class="ul">${esc(L[0])}</span></div>
     <div class="desc">${hl(L[1],f.q.trim())}</div></article>`}).join("")}</div>`:`<div class="empty">当てはまるパッシブがありません。条件を減らしてみてください。</div>`);
 }
