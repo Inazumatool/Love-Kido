@@ -138,7 +138,7 @@ function catOf(ph){const r=[];if(/全パラメータ/.test(ph))return["全パラ
     if(!hit){for(const nm in TECHTP){if(ph.includes(nm)){const tp=TECHTP[nm];r.push(tp==="シュート"?"シュート技":tp==="ドリブル"?"ドリブル技":tp==="キーパー"?"キーパー技":"ブロック技");hit=true;break}}}
     if(!hit)r.push("技全般");return r}
   [["キック",/キック/],["テクニック",/テクニック/],["ブロック",/ブロック/],["キャッチ",/キャッチ/],["スピード",/スピード/]].forEach(([n,re])=>{if(re.test(ph))r.push(n)});return r}
-function effects(t){const out=[];t.split("\n").forEach(line=>{const re=/([^、。]*?)(?:を|が)?(-?\d+)(上昇|減少|下降|低下)/g;let m;while((m=re.exec(line))){const ph=m[1],up=m[3]==="上昇",n=Math.abs(+m[2]);if(/消費TP|消費ＴＰ|ファウル|最大ＴＰ|最大TP/.test(ph))continue;const foe=/敵/.test(ph)||(!up&&/敵/.test(line));if(up&&!foe)catOf(ph).forEach(c=>out.push({kind:"buff",cat:c,n,ph}));else if(!up&&foe)catOf(ph).forEach(c=>out.push({kind:"deb",cat:c,n,ph}))}});return out}
+function effects(t){const out=[];let carry="";t.split("\n").forEach(line=>{const re=/([^、。]*?)(?:を|が)?(-?\d+)(上昇|減少|下降|低下)/g;let m,any=false;while((m=re.exec(line))){any=true;const raw=m[1],up=m[3]==="上昇",n=Math.abs(+m[2]);const ph=(/自身|味方|ＦＷ|ＭＦ|ＤＦ|ＧＫ|敵/.test(raw)?"":carry)+raw;const sj=raw.match(/(自身|敵[^の]*|[^　]*味方[^の]*)の/);if(sj)carry=sj[0];if(/消費TP|消費ＴＰ|ファウル|最大ＴＰ|最大TP/.test(raw))continue;const foe=/敵/.test(ph)||(!up&&/敵/.test(line));if(up&&!foe)catOf(raw).forEach(c=>out.push({kind:"buff",cat:c,n,ph}));else if(!up&&foe)catOf(raw).forEach(c=>out.push({kind:"deb",cat:c,n,ph}))}if(!any&&line.trim())carry=line.replace(/^.*場合/,"").replace(/.*たびに|試合開始時|後半開始時/g,"").trim()});return out}
 function tgtOf(fx){const r=new Set();fx.filter(e=>e.kind==="buff").forEach(e=>{if(/自身/.test(e.ph))r.add("自身");if(/味方|の味方|属性の|ＦＷ|ＭＦ|ＤＦ|ＧＫ/.test(e.ph)&&!/^自身/.test(e.ph.trim()))r.add("味方")});return[...r]}
 
 const condOf=n=>{const m=n.match(/^【([^】]+)】/);return m?m[1]:""};
@@ -153,7 +153,7 @@ function prep(){
 }
 
 /* 並べ替え用の値：最大レベルの文章から「〇〇を数字上昇/減少」を拾う */
-function valOf(p,bs,ds){let best=0;p.fx.forEach(e=>{if((bs.length||ds.length)&&!((e.kind==="buff"&&bs.includes(e.cat))||(e.kind==="deb"&&ds.includes(e.cat))))return;if(e.n>best)best=e.n});p.v=best;return best}
+function valOf(p,bs,ds){let best=0;p.fx.forEach(e=>{if((bs.length||ds.length)&&!((e.kind==="buff"&&bs.some(x=>wide([e.cat]).includes(x)))||(e.kind==="deb"&&ds.some(x=>wide([e.cat]).includes(x)))))return;if(e.n>best)best=e.n});p.v=best;return best}
 /* 共通の部品 */
 const chips=(key,field,opts,lab)=>`<div class="fg"><span class="fl">${lab}</span><div class="chips" role="group" aria-label="${lab}">${opts.map(o=>{const v=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;return`<button type="button" data-k="${key}" data-f="${field}" data-v="${esc(v)}" aria-pressed="${S[key][field].includes(v)}">${esc(t)}</button>`}).join("")}</div></div>`;
 const search=(key,ph)=>`<div class="fg"><label class="fl" for="q-${key}">ことばで探す</label><input type="search" id="q-${key}" data-k="${key}" data-f="q" placeholder="${ph}" value="${esc(S[key].q)}"></div>`;
@@ -166,6 +166,7 @@ const face=(c,sm)=>ICONS[c.id]?`<img class="fc${sm?" sm":""}" src="data:image/we
 const who=c=>`${face(c)}${elb(c.el)} <span class="who">${esc(c.n)}<small>★${c.r}・${c.pos}・${esc(c.team)}${c.sub&&!/メンバー/.test(c.sub)?"・"+esc(c.sub):""}</small></span>`;
 
 /* パッシブ */
+const wide=a=>{const r=[...a];if(a.includes("全パラメータ"))r.push("キック","テクニック","ブロック","キャッチ","スピード");if(a.includes("技全般"))r.push("シュート技","ドリブル技","ブロック技","キーパー技");return r};
 function vPassive(){
   const f=S.passive;
   $("#filters").innerHTML=search("passive","例：結束、ドリブル、豪炎寺")+
@@ -175,7 +176,7 @@ function vPassive(){
     chips("passive","pos",POS,"キャラのポジション")+chips("passive","el",ELS,"キャラの属性")+chips("passive","r",[["3","★3"],["2","★2"],["1","★1"]],"レアリティ")+tagSel("passive")+
     `<div class="fg"><label class="fl" for="ps-sort">並び順</label><select id="ps-sort" data-psort="1"><option value="char" ${f.sort==="char"?"selected":""}>キャラ順</option><option value="desc" ${f.sort==="desc"?"selected":""}>値が大きい順</option><option value="asc" ${f.sort==="asc"?"selected":""}>値が小さい順</option></select><span class="ul">値は最大レベルの数値で並べます。バフ・デバフの項目を選ぶと、その項目の数値で並べます。</span></div>`+resetBtn("passive");
   const q=f.q.trim().toLowerCase();const rows=[];
-  DB.chars.forEach(c=>{if(!charOk(c,f))return;c.ps.forEach((p,i)=>{if(!inAny(f.kind,[p.k==="覚醒"?"覚醒":"レベルパッシブ"]))return;if(f.buff.length&&!f.buff.some(e=>p.buff.includes(e)))return;if(f.deb.length&&!f.deb.some(e=>p.deb.includes(e)))return;if(!inAny(f.tgt,p.tgt))return;if(q&&!p.hay.includes(q))return;rows.push([c,p,i])})});
+  DB.chars.forEach(c=>{if(!charOk(c,f))return;c.ps.forEach((p,i)=>{if(!inAny(f.kind,[p.k==="覚醒"?"覚醒":"レベルパッシブ"]))return;if(f.buff.length&&!f.buff.some(e=>wide(p.buff).includes(e)))return;if(f.deb.length&&!f.deb.some(e=>wide(p.deb).includes(e)))return;if(!inAny(f.tgt,p.tgt))return;if(q&&!p.hay.includes(q))return;rows.push([c,p,i])})});
   if(f.sort!=="char"){rows.forEach(r=>r[3]=valOf(r[1],f.buff,f.deb));rows.sort((a,b)=>(f.sort==="desc"?b[3]-a[3]:a[3]-b[3]))}
   const cap=300;
   $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>件のパッシブ${rows.length>cap?`（先頭${cap}件を表示。条件をしぼってください）`:""}</span></div>`+(rows.length?`<div class="list">${rows.slice(0,cap).map(([c,p,i])=>{const key=c.id+"-"+i,n=p.lv.length,cur=Math.min(f.lv[key]||n,n),L=p.lv[cur-1];
@@ -188,17 +189,18 @@ function vPassive(){
 const SN={kick:"キック",tech:"テクニック",dribblep:"ドリブルパワー",block:"ブロック",catch:"キャッチ",shoot:"シュートパワー",blockp:"ブロックパワー",keeper:"キーパーパワー",all:"パワー（全種類）"};
 const KN={pos:"ポジション",trig:"条件つき",fixed:"固定値",free:"属性"};
 const sealName=s=>(s.pos?`【${s.pos}】`:s.pre?`【${s.pre}】`:"")+SN[s.stat].replace("（全種類）","")+"＋"+(s.attr?`〈${s.attr}〉`:"")+(s.kind==="fixed"?`（固定）`:"");
+const sKinds=s=>s.kind==="pos"&&s.attr?["pos","free"]:[s.kind];
 function vSeal(){
   const f=S.seal;
   $("#filters").innerHTML=search("seal","例：破竹、キック")+chips("seal","slot",[["main","メイン"],["sub","サブ"]],"枠")+chips("seal","stat",Object.entries(SN),"上がるもの")+chips("seal","kind",Object.entries(KN),"条件の種類")+chips("seal","pos",POS,"ポジション")+chips("seal","el",ELS,"属性")+chips("seal","src",["配布","ストア","交換所"],"入手方法")+resetBtn("seal");
   const q=f.q.trim().toLowerCase();
-  const rows=DB.seals.filter(s=>inAny(f.slot,[s.slot])&&inAny(f.stat,[s.stat])&&inAny(f.kind,[s.kind])&&inAny(f.pos,[s.pos||""])&&inAny(f.el,[s.attr||""])&&inAny(f.src,(DB.sealSrc[s.id]||[]).map(r=>r[0]))&&(!q||sealName(s).toLowerCase().includes(q)));
+  const rows=DB.seals.filter(s=>inAny(f.slot,[s.slot])&&inAny(f.stat,s.stat==="all"?["all","shoot","dribblep","blockp","keeper"]:[s.stat])&&inAny(f.kind,sKinds(s))&&inAny(f.pos,[s.pos||""])&&inAny(f.el,[s.attr||""])&&inAny(f.src,(DB.sealSrc[s.id]||[]).map(r=>r[0]))&&(!q||sealName(s).toLowerCase().includes(q)));
   const val=(s,i)=>s.kind==="fixed"?(i===0?"+"+s.fixed:""):(s.lv&&s.lv[i]!=null?"+"+s.lv[i].toLocaleString():"");
-  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>種類のシール</span></div>`+(rows.length?`<div class="tw"><table><thead><tr><th>シール</th><th>枠</th><th>条件の種類</th>${[1,2,3,4,5].map(i=>`<th class="n">Lv${i}</th>`).join("")}<th>入手方法</th></tr></thead><tbody>${rows.map(s=>`<tr><td><b>${hl(sealName(s),f.q.trim())}</b></td><td>${s.slot==="main"?"メイン":"サブ"}</td><td>${KN[s.kind]}</td>${[0,1,2,3,4].map(i=>`<td class="n">${val(s,i)}</td>`).join("")}<td class="w mut">${(DB.sealSrc[s.id]||[]).map(r=>r[0]===r[3]?esc(r[0]):`${esc(r[1])}（${esc(r[3])}${r[4]&&r[4]!=="1"?"×"+esc(r[4]):""}）`).join("、")||"―"}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">当てはまるシールがありません。</div>`);
+  $("#out").innerHTML=`<div class="sum"><b>${rows.length}</b><span>種類のシール</span></div>`+(rows.length?`<div class="tw"><table><thead><tr><th>シール</th><th>枠</th><th>条件の種類</th>${[1,2,3,4,5].map(i=>`<th class="n">Lv${i}</th>`).join("")}<th>入手方法</th></tr></thead><tbody>${rows.map(s=>`<tr><td><b>${hl(sealName(s),f.q.trim())}</b></td><td>${s.slot==="main"?"メイン":"サブ"}</td><td>${sKinds(s).map(k=>KN[k]).join("・")}</td>${[0,1,2,3,4].map(i=>`<td class="n">${val(s,i)}</td>`).join("")}<td class="w mut">${(DB.sealSrc[s.id]||[]).map(r=>r[0]===r[3]?esc(r[0]):`${esc(r[1])}（${esc(r[3])}${r[4]&&r[4]!=="1"?"×"+esc(r[4]):""}）`).join("、")||"―"}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">当てはまるシールがありません。</div>`);
 }
 
 /* 必殺技 */
-const TPS=["シュート","ドリブル","ブロック","ドリブルブロック","キーパー"];
+const TPS=["シュート","ドリブル","ブロック","ドリブルブロック","ディフェンス","キーパー"];
 function vTech(){
   const f=S.tech;
   $("#filters").innerHTML=search("tech","例：ゴッドハンド")+chips("tech","tp",TPS,"種類")+chips("tech","el",ELS,"属性")+chips("tech","scr",["あり","なし"],"秘伝書")+chips("tech","cat",[...new Set(DB.scrolls.map(s=>s.cat))].map(c=>[c,c==="ストア"?"ストア（購入）":c]),"秘伝書の入手方法")+`<p class="ul">「ブロック」はシュートも止められる技、「ドリブルブロック」はドリブルだけを止める技です。</p>`+resetBtn("tech");
