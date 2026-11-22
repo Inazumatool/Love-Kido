@@ -81,6 +81,20 @@ tr:last-child td{border-bottom:0}
 .mut{color:var(--muted)}
 .empty{padding:30px;text-align:center;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px}
 mark{background:#ffe58a;color:inherit;border-radius:2px}
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 14px}
+.gcard h2{font:900 17px var(--f-disp);margin:0 0 4px}
+.gcard .gd{font-size:12px;color:var(--muted);margin:0 0 10px}
+.calc{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:end;margin:0 0 10px}
+.calc .fg{min-width:110px;flex:0 1 150px}
+.calc .ar{font-weight:900;padding-bottom:9px}
+#g-awk .calc .fg{flex-basis:230px}
+.res{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.res span{background:var(--ink);color:#fff;border-radius:999px;padding:5px 12px;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.res span.z{background:var(--line);color:var(--muted)}
+.gcard td.on,.gcard th.on{background:#fff6cc}
+.gnote{font-size:12px;color:var(--muted);line-height:1.7}
+.gnav{display:grid;gap:6px}
+.gnav a{display:block;padding:8px 10px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:inherit;font-weight:700;font-size:13px;background:var(--card)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -88,7 +102,7 @@ mark{background:#ffe58a;color:inherit;border-radius:2px}
 <header class="top">
   <h1 class="logo">イナクロデータベース</h1>
   <nav class="tabs" aria-label="データの種類">
-    <a href="#passive">パッシブ</a><a href="#seal">シール</a><a href="#tech">必殺技</a><a href="#scroll">秘伝書</a><a href="#chara">キャラ</a>
+    <a href="#passive">パッシブ</a><a href="#seal">シール</a><a href="#tech">必殺技</a><a href="#scroll">秘伝書</a><a href="#chara">キャラ</a><a href="#grow">育成素材</a>
   </nav>
   <a class="back" href="./">計算ツールへ →</a>
 </header>
@@ -106,7 +120,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ELS=["風","林","火","山"],POS=["FW","MF","DF","GK"];
 const elb=e=>e?`<span class="el el-${e}">${e}</span>`:"";
-const S={view:"passive",passive:{q:"",kind:[],buff:[],deb:[],tgt:[],pos:[],el:[],r:[],tag:"",sort:"char",lv:{}},seal:{q:"",slot:[],stat:[],kind:[],pos:[],el:[],src:[]},tech:{q:"",tp:[],el:[],scr:[],cat:[],sort:"pw",dir:-1},scroll:{q:"",cat:[]},chara:{q:"",pos:[],el:[],r:[],tag:"",sort:"k",dir:-1,lv:440,rk:9,raw:false}};
+const S={view:"passive",passive:{q:"",kind:[],buff:[],deb:[],tgt:[],pos:[],el:[],r:[],tag:"",sort:"char",lv:{}},seal:{q:"",slot:[],stat:[],kind:[],pos:[],el:[],src:[]},tech:{q:"",tp:[],el:[],scr:[],cat:[],sort:"pw",dir:-1},scroll:{q:"",cat:[]},chara:{q:"",pos:[],el:[],r:[],tag:"",sort:"k",dir:-1,lv:440,rk:9,raw:false},grow:{tech:{a:1,b:10,n:1},coach:{a:1,b:10,n:1},seal:{slot:"main",a:1,b:5,n:1},awk:{r:3,a:2,b:9}}};
 try{const v=JSON.parse(localStorage.getItem("incdb-state")||"null");if(v&&v.passive){for(const k in v)if(S[k]&&typeof S[k]==="object")Object.assign(S[k],v[k])}}catch(e){}
 S.passive.kind=S.passive.kind.filter(k=>k==="レベルパッシブ"||k==="覚醒");
 const save=()=>{try{localStorage.setItem("incdb-state",JSON.stringify(S))}catch(e){}};
@@ -218,7 +232,62 @@ function vChara(){
 
 const RANKS=[["NORMAL",1],["NORMAL+",1.1],["GROWING",1.2],["GROWING+",1.3],["ADVANCED",1.4],["ADVANCED+",1.5],["TOP",1.6],["TOP+",1.7],["LEGENDARY",1.85],["LEGENDARY+",2]];
 function statAt(b,lv,rk){lv=Math.min(440,Math.max(1,lv|0||1));const m=Math.round(DB.lvmul[lv-1]*10);const x=b*m,q=Math.floor(x/20000),r=x-q*20000;const v=q+(r>10000||(r===10000&&q%2)?1:0);return Math.floor(v*Math.round(RANKS[rk][1]*100)/100)}
-const VIEWS={passive:vPassive,seal:vSeal,tech:vTech,scroll:vScroll,chara:vChara};
+
+/* 育成素材 */
+const G_TECH=[["初級",15],["初級",60],["初級",125],["中級",30],["中級",50],["中級",70],["上級",5],["上級",10],["上級",15]];
+const G_COACH=[[5,0],[10,0],[17,0],[26,0],[36,6],[47,14],[59,24],[73,36],[90,50]];
+const G_SEAL={main:[40,80,140,240],sub:[10,20,35,60]};
+const G_RK=["ノーマル","ノーマル+","グロウウィング","グロウウィング+","アドバンスド","アドバンスド+","トップ","トップ+","レジェンダリー","レジェンダリー+"];
+const G_AWK={1:[null,["魂",1],["魂",3],["魂",4],["魂",5],["魂",8],["魂",10],["魂",12],["かけら",200],["魂",20]],
+  2:[null,["魂",1],["魂",3],["魂",4],["魂",5],["かけら",120],["魂",8],["魂",10],["かけら",200],["魂",15]],
+  3:[null,null,null,["魂",1],["魂",1],["かけら",100],["魂",1],["魂",2],["かけら",600],["魂",2]]};
+const AWK_START={1:0,2:0,3:2};
+const nf=n=>Number(n).toLocaleString("ja-JP");
+function gSel(k,f,lo,hi,v,lab,names){return`<div class="fg"><label class="fl" for="g-${k}-${f}">${lab}</label><select id="g-${k}-${f}" data-g="${k}:${f}">${Array.from({length:hi-lo+1},(_,i)=>lo+i).map(x=>`<option value="${x}" ${x===v?"selected":""}>${names?names[x]:"Lv"+x}</option>`).join("")}</select></div>`}
+function gNum(k,v,lab){return`<div class="fg"><label class="fl" for="g-${k}-n">${lab}</label><input type="number" id="g-${k}-n" min="1" max="99" value="${v}" data-g="${k}:n"></div>`}
+function gRes(o){const e=Object.entries(o);return`<div class="res" role="status">${e.length?e.map(([k,v])=>`<span class="${v?"":"z"}">${esc(k)} ${nf(v)}</span>`).join(""):'<span class="z">上げる段階を選んでください</span>'}</div>`}
+function vGrow(){
+  const g=S.grow;
+  $("#filters").innerHTML=`<div class="gnav"><a href="#g-tech">必殺技</a><a href="#g-seal">シール</a><a href="#g-coach">監督</a><a href="#g-awk">覚醒魂</a></div><p class="gnote">「いまのLv」と「目標」を選ぶと、必要な数を足し合わせて出します。数は、1つ分（技1つ・シール1枚・監督1人・キャラ1人）あたりです。</p><p class="gnote">出典：必殺技・監督・覚醒は AppMedia、シールはクラブで確認した値。</p>`;
+  // 技
+  const t=g.tech,ta=Math.min(t.a,t.b),tb=Math.max(t.a,t.b),tr={};
+  for(let i=ta;i<tb;i++){const[k,v]=G_TECH[i-1];tr["必殺技の極意・"+k]=(tr["必殺技の極意・"+k]||0)+v*t.n}
+  const techHTML=`<article class="gcard" id="g-tech"><h2>必殺技</h2><p class="gd">必殺技の極意（初級・中級・上級）。Lv10まで：初級200・中級150・上級30</p>
+    <div class="calc">${gSel("tech","a",1,10,t.a,"いまのLv")}<span class="ar">→</span>${gSel("tech","b",1,10,t.b,"目標のLv")}${gNum("tech",t.n,"技の数")}</div>${gRes(tr)}
+    <div class="tw"><table><thead><tr><th>Lv</th>${G_TECH.map((_,i)=>`<th class="n ${i+1>=ta&&i+1<tb?"on":""}">${i+1}→${i+2}</th>`).join("")}<th class="n">合計</th></tr></thead><tbody>
+    ${["初級","中級","上級"].map(k=>`<tr><th>${k}</th>${G_TECH.map((x,i)=>`<td class="n ${i+1>=ta&&i+1<tb?"on":""}">${x[0]===k?x[1]:""}</td>`).join("")}<td class="n"><b>${G_TECH.filter(x=>x[0]===k).reduce((a,x)=>a+x[1],0)}</b></td></tr>`).join("")}</tbody></table></div></article>`;
+  // 監督
+  const c=g.coach,ca=Math.min(c.a,c.b),cb=Math.max(c.a,c.b),cr={"監督の心得":0,"監督の心得・上級":0};
+  for(let i=ca;i<cb;i++){cr["監督の心得"]+=G_COACH[i-1][0]*c.n;cr["監督の心得・上級"]+=G_COACH[i-1][1]*c.n}
+  if(ca===cb)for(const k in cr)delete cr[k];
+  const coachHTML=`<article class="gcard" id="g-coach"><h2>監督</h2><p class="gd">監督の心得・監督の心得・上級（上級はLv5→6から）。Lv10まで：心得363・上級130</p>
+    <div class="calc">${gSel("coach","a",1,10,c.a,"いまのLv")}<span class="ar">→</span>${gSel("coach","b",1,10,c.b,"目標のLv")}${gNum("coach",c.n,"監督の数")}</div>${gRes(cr)}
+    <div class="tw"><table><thead><tr><th>Lv</th>${G_COACH.map((_,i)=>`<th class="n ${i+1>=ca&&i+1<cb?"on":""}">${i+1}→${i+2}</th>`).join("")}<th class="n">合計</th></tr></thead><tbody>
+    <tr><th>監督の心得</th>${G_COACH.map((x,i)=>`<td class="n ${i+1>=ca&&i+1<cb?"on":""}">${x[0]}</td>`).join("")}<td class="n"><b>363</b></td></tr>
+    <tr><th>上級</th>${G_COACH.map((x,i)=>`<td class="n ${i+1>=ca&&i+1<cb?"on":""}">${x[1]||"−"}</td>`).join("")}<td class="n"><b>130</b></td></tr></tbody></table></div></article>`;
+  // シール
+  const se=g.seal,sa=Math.min(se.a,se.b),sb=Math.max(se.a,se.b),arr=G_SEAL[se.slot];let sn=0;for(let i=sa;i<sb;i++)sn+=arr[i-1]*se.n;
+  const sealHTML=`<article class="gcard" id="g-seal"><h2>シール</h2><p class="gd">強化シール。Lv5まで：メイン500・サブ125</p>
+    <div class="calc"><div class="fg"><label class="fl" for="g-seal-slot">メイン・サブ</label><select id="g-seal-slot" data-g="seal:slot"><option value="main" ${se.slot==="main"?"selected":""}>メイン</option><option value="sub" ${se.slot==="sub"?"selected":""}>サブ</option></select></div>${gSel("seal","a",1,5,se.a,"いまのLv")}<span class="ar">→</span>${gSel("seal","b",1,5,se.b,"目標のLv")}${gNum("seal",se.n,"枚数")}</div>${gRes(sa===sb?{}:{"強化シール":sn})}
+    <div class="tw"><table><thead><tr><th>Lv</th>${[1,2,3,4].map(i=>`<th class="n">${i}→${i+1}</th>`).join("")}<th class="n">合計</th></tr></thead><tbody>
+    ${["main","sub"].map(k=>`<tr><th>${k==="main"?"メイン":"サブ"}</th>${G_SEAL[k].map((v,i)=>`<td class="n ${k===se.slot&&i+1>=sa&&i+1<sb?"on":""}">${v}</td>`).join("")}<td class="n"><b>${G_SEAL[k].reduce((a,b)=>a+b,0)}</b></td></tr>`).join("")}</tbody></table></div></article>`;
+  // 覚醒
+  const a=g.awk,st=AWK_START[a.r];let aa=Math.max(st,Math.min(a.a,a.b)),ab=Math.max(st,Math.max(a.a,a.b));const ar={};
+  for(let i=aa+1;i<=ab;i++){const x=G_AWK[a.r][i];if(x){const k=x[0]==="魂"?"覚醒魂":"属性のかけら（キャラと同じ属性）";ar[k]=(ar[k]||0)+x[1]}}
+  const names=G_RK.map(n=>n+"プレイヤー");
+  const awkHTML=`<article class="gcard" id="g-awk"><h2>覚醒魂</h2><p class="gd">覚醒魂と属性のかけら。★3はグロウウィングプレイヤーから始まります</p>
+    <div class="calc"><div class="fg"><label class="fl" for="g-awk-r">レアリティ</label><select id="g-awk-r" data-g="awk:r">${[3,2,1].map(r=>`<option value="${r}" ${a.r===r?"selected":""}>★${r}</option>`).join("")}</select></div>${gSel("awk","a",st,9,Math.max(st,a.a),"いまの段階",names)}<span class="ar">→</span>${gSel("awk","b",st,9,Math.max(st,a.b),"目標の段階",names)}</div>${gRes(ar)}
+    <div class="tw"><table><thead><tr><th>段階</th><th class="n">★1</th><th class="n">★2</th><th class="n">★3</th></tr></thead><tbody>
+    ${names.map((n,i)=>`<tr><th>${n}</th>${[1,2,3].map(r=>{const x=G_AWK[r][i];const on=r===a.r&&i>aa&&i<=ab;return`<td class="n ${on?"on":""}">${i<AWK_START[r]?"−":i===AWK_START[r]?"はじめ":x?(x[0]==="魂"?"覚醒魂 ":"かけら ")+x[1]:"−"}</td>`}).join("")}</tr>`).join("")}
+    <tr><th>合計</th><td class="n"><b>魂63・かけら200</b></td><td class="n"><b>魂46・かけら320</b></td><td class="n"><b>魂7・かけら700</b></td></tr></tbody></table></div>
+    <p class="gnote">余った覚醒魂は魂のメダルに換えられます（★3は100個・★2は5個・★1は1個）。</p></article>`;
+  $("#out").innerHTML=techHTML+sealHTML+coachHTML+awkHTML;
+}
+document.addEventListener("change",e=>{const el=e.target.closest("[data-g]");if(!el)return;const[k,f]=el.dataset.g.split(":");let v=el.value;
+  if(f==="slot")S.grow[k][f]=v;else{v=Math.floor(+v||1);if(f==="n")v=Math.max(1,Math.min(99,v));S.grow[k][f]=v}
+  if(k==="awk"&&f==="r"){const st=AWK_START[v];S.grow.awk.a=Math.max(st,S.grow.awk.a);S.grow.awk.b=Math.max(st,S.grow.awk.b)}
+  const y=window.scrollY;render();window.scrollTo(0,y);const n=document.getElementById(el.id);n&&n.focus()});
+const VIEWS={passive:vPassive,seal:vSeal,tech:vTech,scroll:vScroll,chara:vChara,grow:vGrow};
 function render(){document.querySelectorAll("nav.tabs a").forEach(a=>a.getAttribute("href")==="#"+S.view?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));VIEWS[S.view]();save()}
 function route(){const h=location.hash.slice(1);if(VIEWS[h])S.view=h;render()}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-k][data-f][data-v]");if(b&&b.tagName==="BUTTON"){const a=S[b.dataset.k][b.dataset.f],v=b.dataset.v,i=a.indexOf(v);i>=0?a.splice(i,1):a.push(v);render();return}
